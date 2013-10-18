@@ -1,0 +1,18 @@
+{
+  "manifest_version": 2,
+
+  "name": "myWiki",
+  "description": "myWiki permits users to annotate Wikipedia in an integrated way. This implementation illustrates the proposed Web Augmentation architecture.",
+  "version": "1.0",
+  
+  "permissions": [
+    "storage"
+  ],
+   
+  "content_scripts": [
+     {
+       "matches": ["http://*.wikipedia.org/*","https://*.wikipedia.org/*"],
+       "js": ["myWiki.js"]
+     }
+   ]
+}

@@ -2,8 +2,8 @@
   "manifest_version": 2,
 
   "name": "myWiki",
-  "description": "myWiki permits users to annotate Wikipedia in an integrated way. This implementation illustrates the proposed Web Augmentation architecture.",
-  "version": "1.0",
+  "description": "myWiki allows users to annotate Wikipedia in an integrated way. This example illustrates the proposed Web Augmentation architecture.",
+  "version": "1.0.1",
   
   "permissions": [
     "storage"

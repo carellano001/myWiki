@@ -410,7 +410,7 @@ WikinoteEditView.prototype.render=function(){
  editorAJAX.type="text/javascript";
  var head=document.getElementsByTagName("head")[0];
  var script=null;
- var wikinoteEmbed1=this.generateWikiLayerTemplate();
+ var wikinoteEmbed1=this.generateWikinoteTemplate();
  var wikinoteEmbed2="//TODO - Extract from other Web pages\n\n";		
  var templateB=this.generateAddToToolbarSection("wpTextbox1","wikilayer","Wikinote")+
                this.generateAddToToolbarGroup("wpTextbox1","wikilayer","embed","Embedded Note")+
@@ -441,8 +441,8 @@ WikinoteEditView.prototype.generateAddToToolbarGroup=function(txtBoxId,sectionNa
 WikinoteEditView.prototype.generateAddToToolbarTool=function(txtBoxId,sectionName,groupName,toolName,toolLabel,icon,templateContent){
  return "$('#"+txtBoxId+"').wikiEditor( 'addToToolbar', {'section': '"+sectionName+"','group': '"+groupName+"', 'tools': {'"+toolName+"': { label: '"+toolLabel+"', type: 'button', icon: '"+icon+"',action: { type: 'replace', options: { pre: '"+templateContent.replace(/\n/g,"\\n").replace(/'/g,"\\'")+"'  } } } } } );\n";		
 };
-WikinoteEditView.prototype.generateWikiLayerTemplate=function(){
- var str="{{WikiLayer\n";
+WikinoteEditView.prototype.generateWikinoteTemplate=function(){
+ var str="{{Wikinote\n";
  str=str+" | onArticle=\"ArticleName\" //Article name as it appears on the URL\n";
  str=str+" | afterSection=\"1\" //Ordinal or Name of one this article's sections\n";
  str=str+" | embedNote=\"== New Section == \\\nTest text.\"\n";				

@@ -15,8 +15,8 @@ StringUtilities.wrapParam=function(param){
 // = Wrapper =
 var WikipediaWrapper=function(){
  this.nodes={};
- this.nodes.articleName={node:null,listeners:{},locator:function(){return window.location.href.replace(/_/g," ");},supplements:[],value:null,regexp:/^http:\/\/en\.wikipedia\.org\/wiki\/([^?#]+)/};
- this.nodes.sections={nodes:[],listeners:[],xpath:"//*[@id='mw-content-text']/h2",supplements:[],values:[],
+ this.nodes.articleName={node:null,listeners:{},locator:function(){return window.location.href.replace(/_/g," ");},supplements:[],value:null,regexp:/^https?:\/\/en\.wikipedia\.org\/wiki\/([^?#]+)/};
+ this.nodes.sections={nodes:[],listeners:[],xpath:"//*[@id='mw-content-text']/h2",livexpath:"//*[@id='mw-content-text']",livelisteners:[],supplements:[],values:[],
                       regexp:function(node){
 						  return node.getElementsByClassName('mw-headline')[0].textContent;
                       },
@@ -56,7 +56,7 @@ var WikipediaWrapper=function(){
 						  return object;						  
 					  }
                       }; 
- this.nodes.articleTab={node:null,listeners:{},xpath:"//*[@id='ca-nstab-main']",supplements:[]}; 				  
+ this.nodes.articleTab={node:null,listeners:{},xpath:"//*[starts-with(@id,'ca-nstab-')]",supplements:[]}; 				  
  this.nodes.readTab={node:null,listeners:{},xpath:"//*[@id='ca-view']",supplements:[]}; 
  this.nodes.editTab={node:null,listeners:{},xpath:"//*[@id='ca-edit']",supplements:[]};  
  this.nodes.content={node:null,listeners:{},xpath:"//*[@id='content']",supplements:[]};  
@@ -77,21 +77,7 @@ WikipediaWrapper.prototype._populateObj=function(){
   if(node.xpath!=null){
    var tempNod=document.evaluate(node.xpath,document,null,XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
    if(node.nodes!=null){
-    nod=[];
-	var i=0;
-	for(i=0;i<tempNod.snapshotLength;i++){
-     nod[i]=tempNod.snapshotItem(i);
- 	 if(node.regexp!=null){	 
-	  var val;
-	  if(typeof node.regexp=="function"){
-	   val=node.regexp(nod[i]);
-	  }else{
-	   val=this._getFirstMatch(nod[i].textContent,node.regexp);
-	  }
-      node.values[node.values.length]=val;
-	 }	   
-	}
-	node.nodes=nod;
+    this._populateNodesValues(node,tempNod);
    }else if(tempNod.snapshotLength>0){
 	nod=tempNod.snapshotItem(0);  
 	if(node.regexp!=null){
@@ -99,12 +85,62 @@ WikipediaWrapper.prototype._populateObj=function(){
 	}	    	
 	node.node=nod;
    }
+   if(node.livexpath){
+    this._observeNewElements(node);
+   }
   }else if(node.locator){
    nod=node.locator();
    if(node.regexp!=null){
     node.value=this._getFirstMatch(nod,node.regexp);
    }
    node.node=nod;  	
+  }
+ }
+};
+WikipediaWrapper.prototype._populateNodesValues=function(node,tempNod){
+ var nod=[];
+ var values=[];
+ for(var i=0;i<tempNod.snapshotLength;i++){
+  nod[i]=tempNod.snapshotItem(i);
+  if(node.regexp!=null){	 
+  var val;
+  if(typeof node.regexp=="function"){
+   val=node.regexp(nod[i]);
+  }else{
+   val=this._getFirstMatch(nod[i].textContent,node.regexp);
+  }
+  values[values.length]=val;
+  }	   
+ }
+ node.nodes=nod;
+ node.values=values;
+};
+WikipediaWrapper.prototype._observeNewElements=function(node){
+ var obj=this;
+ var fnCallback = function (mutations) {  
+  mutations.forEach(function (mutation) {  
+   var any=false;
+   for(var i=0;i<mutation.addedNodes.length&&!any;i++){
+   	any=mutation.addedNodes[i].getAttribute("data-augmentation-generated")==null;
+   }
+   if(any){
+    obj._purgeOldElementsAndNotifyNewElements(node);
+   }
+  }); 
+ }; 
+ var observer = new MutationObserver(fnCallback);
+ var elTarget = document.evaluate(node.livexpath,document,null,XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null).snapshotItem(0);
+ var objConfig = { childList: true, subtree : false, attributes: false, characterData : false }; 
+ observer.observe(elTarget, objConfig);
+};
+WikipediaWrapper.prototype._purgeOldElementsAndNotifyNewElements=function(node){
+ var tempNod=document.evaluate(node.xpath,document,null,XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+ this._populateNodesValues(node,tempNod);
+ for(var j=0;j<node.livelisteners.length;j++){
+  try{
+   node.livelisteners[j]();
+  }catch(e){
+   console.log(e);
   }
  }
 };
@@ -119,6 +155,9 @@ WikipediaWrapper.prototype._getFirstMatch=function(content,regexp){
 WikipediaWrapper.prototype._getNode=function(type){
  return this.nodes[type];
 };
+WikipediaWrapper.prototype._addLiveListener=function(node,callback){
+ node.livelisteners[node.livelisteners.length]=callback;
+};
 WikipediaWrapper.prototype.getArticleName=function(){
  return this.nodes.articleName.value;
 };
@@ -128,7 +167,7 @@ WikipediaWrapper.prototype.getSections=function(){
 WikipediaWrapper.prototype.injectIntoSections=function(node,position){
  this._addSibling(this.nodes.sections,node,position);
  var h2=node.getElementsByTagName("h2")[0];
- if(h2!=null){
+ if(h2!=null&&this.nodes.toc.nodes.length>0){
   var name=h2.firstElementChild.textContent;
   var tocEntry=document.createElement("li");
   tocEntry.className="toclevel-1 weavedToc";
@@ -138,6 +177,12 @@ WikipediaWrapper.prototype.injectIntoSections=function(node,position){
 };
 WikipediaWrapper.prototype.getSectionTemplate=function(){
  return this.nodes.sections.template();  
+};
+WikipediaWrapper.prototype.onLoadSection=function(callback){
+ this._addLiveListener(this.nodes.sections,callback);  
+};
+WikipediaWrapper.prototype.removeInjectionFromSection=function(node){
+ this._removeChild(this.nodes.sections,node);
 };
 WikipediaWrapper.prototype.injectIntoNamespaceTabs=function(node,position){
  this._addSibling(this.nodes.namespaceTabs,node,position);
@@ -195,6 +240,7 @@ WikipediaWrapper.prototype._addChild=function(node,toAdd){
  }
 };
 WikipediaWrapper.prototype._addSibling=function(node,toAdd,position){
+ toAdd.setAttribute("data-augmentation-generated","true");
  var n=node.nodes;
  if(position==null){position=n.length;} 
  if(n!=null&&toAdd!=null&&position<=n.length){
@@ -626,9 +672,15 @@ var ArticleIController=function(){
   return ArticleIController.prototype._singletonInstance;
  }
  ArticleIController.prototype._singletonInstance = this;	
+ this.addedSections=[];
 };
 ArticleIController.prototype.execute=function(){
  var currentArticle=Wikipedia.getArticleName(); 	
+ for(var i=0;i<this.addedSections.length;i++){
+  Wikipedia.removeInjectionFromSection(this.addedSections[i]);
+ }
+ this.addedSections=[];
+ var obj=this;	
  Wikinote.find(currentArticle,function(notes){		
  var sections=Wikipedia.getSections();
  var i=0;
@@ -640,7 +692,9 @@ ArticleIController.prototype.execute=function(){
   if(note.getRelativePosition()=="after"){
    index++;
   }
-  Wikipedia.injectIntoSections(view.render(),index);
+  var nsect=view.render();
+  obj.addedSections[obj.addedSections.length]=nsect;
+  Wikipedia.injectIntoSections(nsect,index);
  }  	
  });
 }; 
@@ -684,6 +738,7 @@ LoadEController.prototype.execute=function(){
   tab.setViewData(tabParams);
   Wikipedia.injectIntoNamespaceTabs(tab.render());
   new ArticleIController().execute();
+  Wikipedia.onLoadSection(function(){new ArticleIController().execute();});
  }
 }; 
 
